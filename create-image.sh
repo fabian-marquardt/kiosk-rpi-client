@@ -80,6 +80,7 @@ EOF
 
 # Create filesystems and mount partitions
 LOOPDEV=$(kpartx -va ${IMGDIR}/${HOSTNAME}.img  | sed -E 's/.*(loop[0-9])p.*/\1/g' | head -1)
+sleep 3 # some wait time here because the loop devices may take a moment to appear correctly
 mkfs.ext4 /dev/mapper/${LOOPDEV}p2
 mkfs.vfat /dev/mapper/${LOOPDEV}p1
 mount /dev/mapper/${LOOPDEV}p2 $MOUNTDIR

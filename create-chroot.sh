@@ -10,7 +10,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Config parameters
-PACKAGES=locales,console-setup,openssh-server,ifupdown,net-tools,ntp,ntpdate,iceweasel,xinit,openbox,x11-xserver-utils
+PACKAGES=locales,console-setup,netbase,ifupdown,net-tools,isc-dhcp-client,ntp,ntpdate,openssh-server,iceweasel,xinit,openbox,x11-xserver-utils,x11vnc
 
 # Path fix for use on non-debian systems which do not use sbin
 PATH=/usr/local/sbin:/usr/sbin:/sbin:$PATH
@@ -51,4 +51,5 @@ fi
 mkdir -p $CHROOTDIR
 
 # Base installation
-qemu-debootstrap --variant minbase --include $PACKAGES --arch armhf jessie $CHROOTDIR http://archive.raspbian.org/raspbian
+qemu-debootstrap  --keyring ./raspbian.gpg --variant minbase --include $PACKAGES --arch armhf jessie $CHROOTDIR http://archive.raspbian.org/raspbian
+#cdebootstrap-static --keyring ./raspbian.gpg --include $PACKAGES --arch armhf jessie $CHROOTDIR http://archive.raspbian.org/raspbian
