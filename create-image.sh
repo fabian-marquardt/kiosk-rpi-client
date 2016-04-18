@@ -1,56 +1,24 @@
 #!/bin/bash
+source config.sh
+
+check_root
+check_dependencies
+check_config
 set -e
-PWD=$(pwd)
-CHROOTDIR=$PWD/chroot
-FWDIR=$PWD/firmware
-IMGDIR=$PWD/images
-MOUNTDIR=$PWD/mnt
-
-# Root privileges check
-if [[ $EUID -ne 0 ]]; then
-  echo "Must be root to run this script."
-  exit 1
-fi
-
-# Path fix for use on non-debian systems which do not use sbin
-PATH=/usr/local/sbin:/usr/sbin:/sbin:$PATH
 
 # Parse command line arguments
-while getopts ':h:p:' OPTION ; do
+while getopts ':h:p:u:' OPTION ; do
     case "$OPTION" in
         h)   HOSTNAME=$OPTARG;;
         p)   PASSWORD=$OPTARG;;
+	u)   URL=$OPTARG;;
     esac
 done
 
 # Check if all mandatory parameters are set, otherwise print usage info
-if [ -z $HOSTNAME ] || [ -z $PASSWORD ];
+if [ -z "$HOSTNAME" ] || [ -z "$PASSWORD" ] || [ -z "$URL" ];
 then
-    echo "Usage: $0 -h <hostname> -p <password>"
-    exit 1
-fi
-
-# Obtain necessary dependencies
-KPARTX=$(which kpartx)
-QEMUARM=$(which qemu-arm-static)
-BINFMT=$(cat /proc/sys/fs/binfmt_misc/arm | grep qemu-arm-static)
-
-# Check if all dependencies are present
-if [ -z $KPARTX ];
-then
-    echo "Dependency missing: kpartx"
-    exit 1
-fi
-
-if [ -z $QEMUARM ];
-then
-    echo "Dependency missing: qemu-arm-static"
-    exit 1
-fi
-
-if [ -z $BINFMT ];
-then
-    echo "Binfmt support for the ARM platform is not available. This is required to build the image on your PC."
+    echo "Usage: $0 -h <hostname> -p <password> -u <url>"
     exit 1
 fi
 
@@ -97,12 +65,7 @@ cp -vr $FWDIR/boot/* $MOUNTDIR/boot/
 
 # Set bootloader config
 cat >$MOUNTDIR/boot/config.txt<<EOF
-kernel=kernel.img
-arm_freq=800
-core_freq=250
-sdram_freq=400
-over_voltage=0
-gpu_mem=16
+# Set special RPi config options here
 EOF
 
 cat >$MOUNTDIR/boot/cmdline.txt<<EOF
@@ -131,13 +94,37 @@ EOF
 # Create user account
 cat >$MOUNTDIR/user-config.sh<<EOF
 #!/bin/bash
-useradd kiosk
+useradd kiosk -s /bin/bash
+mkdir /home/kiosk
+chown kiosk:kiosk /home/kiosk
 echo kiosk:$PASSWORD | chpasswd
 echo root:$PASSWORD | chpasswd
 EOF
 chmod +x $MOUNTDIR/user-config.sh
 chroot $MOUNTDIR /user-config.sh
 rm $MOUNTDIR/user-config.sh
+
+# Create xinitrc
+cat >$MOUNTDIR/home/kiosk/.xinitrc<<EOF
+#!/bin/bash
+xset s off
+xset -dpms
+xset s noblank
+chromium-browser --temp-profile --no-first-run --noerrdialogs --disable-translate --kiosk $URL &
+exec openbox
+EOF
+
+# Create rc.local
+cat >$MOUNTDIR/etc/rc.local<<EOF
+#!/bin/bash
+su - kiosk -c startx
+exit 0
+EOF
+
+# Fix Xwrapper
+cat >$MOUNTDIR/etc/X11/Xwrapper.config<<EOF
+allowed_users=anybody
+EOF
 
 # Unmount image
 umount $MOUNTDIR/boot

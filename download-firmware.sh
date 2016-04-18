@@ -1,7 +1,8 @@
 #!/bin/bash
+source config.sh
+
+check_config
 set -e
-PWD=$(pwd)
-FWDIR=$PWD/firmware
 
 wget https://github.com/raspberrypi/firmware/archive/master.tar.gz
 tar xzvf master.tar.gz
